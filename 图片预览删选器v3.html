@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片预览筛选工具 - 优化版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* macOS风格配色方案 */
+            --primary-color: #007AFF;
+            --secondary-color: #5856D6;
+            --success-color: #34C759;
+            --warning-color: #FF9500;
+            --danger-color: #FF3B30;
+            --info-color: #64D2FF;
+            
+            /* 中性色 */
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #AEAEB2;
+            
+            /* 背景色 */
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F2F2F7;
+            --bg-tertiary: #E5E5EA;
+            --bg-quaternary: rgba(116, 116, 128, 0.08);
+            
+            /* 系统背景 */
+            --system-bg: #F5F5F7;
+            --sidebar-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.7);
+            
+            /* 边框和分割线 */
+            --separator: rgba(60, 60, 67, 0.12);
+            --border-color: rgba(0, 0, 0, 0.04);
+            
+            /* 阴影 */
+            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.12);
+            
+            /* 圆角 */
+            --radius-small: 8px;
+            --radius-medium: 12px;
+            --radius-large: 16px;
+            --radius-xlarge: 20px;
+            
+            /* 间距 */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --spacing-xxl: 48px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: var(--system-bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 1600px;
+            margin: 0 auto;
+            background: var(--bg-primary);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xlarge);
+            overflow: hidden;
+            box-shadow: var(--shadow-heavy);
+            border: 1px solid var(--separator);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            color: var(--text-primary);
+            padding: var(--spacing-xl);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+            border-right: 1px solid var(--separator);
+            position: relative;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            position: relative;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-lg) var(--spacing-xl);
+            border-bottom: 1px solid var(--separator);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, 
+                rgba(255, 255, 255, 0.8) 0%, 
+                rgba(255, 255, 255, 0.4) 100%);
+            pointer-events: none;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-xl);
+            position: relative;
+        }
+
+        h1 {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 28px;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 20px;
+            letter-spacing: -0.3px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .page-size-selector label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .page-size-selector select {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--separator);
+            border-radius: var(--radius-small);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .page-size-selector select:hover {
+            border-color: var(--primary-color);
+        }
+
+        .page-size-selector select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .page-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--separator);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: var(--radius-small);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: var(--bg-quaternary);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .page-btn.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
+
+        .page-info {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .folder-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-medium);
+            border: 1px solid var(--separator);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .folder-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .folder-section h3 {
+            margin-bottom: var(--spacing-md);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .folder-input {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 1px solid var(--separator);
+            border-radius: var(--radius-small);
+            background: var(--bg-primary);
+            font-size: 14px;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .folder-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .folder-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-small);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.2), 
+                transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #0056D6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+        }
+
+        .btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn:disabled::before {
+            display: none;
+        }
+
+        .progress-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-medium);
+            border: 1px solid var(--separator);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .progress-section h3 {
+            margin-bottom: var(--spacing-md);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .progress-bar {
+            background: var(--bg-tertiary);
+            height: 6px;
+            border-radius: var(--radius-small);
+            overflow: hidden;
+            margin: var(--spacing-md) 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: var(--radius-small);
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.3), 
+                transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .stats {
+            font-size: 14px;
+            margin-top: var(--spacing-md);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stats div {
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .stats span {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+            min-height: 400px;
+        }
+
+        .image-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s ease;
+            position: relative;
+            animation: fadeInUp 0.3s ease forwards;
+        }
+
+        .image-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .image-container {
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s ease;
+        }
+
+        .image-card:hover .image-preview {
+            transform: scale(1.02);
+        }
+
+        .image-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.9);
+            color: #495057;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .select-btn:hover {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .select-btn.selected {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .image-info {
+            padding: 15px;
+        }
+
+        .image-name {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .tag-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .tags-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .tag {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .status-new {
+            background: #ffc107;
+        }
+
+        .status-selected {
+            background: #007bff;
+        }
+
+        .status-viewed {
+            background: #6c757d;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .save-btn {
+            background: #28a745;
+            flex: 1;
+        }
+
+        .save-btn:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .export-btn {
+            background: #007bff;
+            flex: 1;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            background: #0056b3;
+        }
+
+        .load-btn {
+            background: #6c757d;
+            flex: 1;
+        }
+
+        .load-btn:hover:not(:disabled) {
+            background: #545b62;
+        }
+
+        .view-btn {
+            background: #17a2b8;
+            flex: 1;
+        }
+
+        .view-btn:hover:not(:disabled) {
+            background: #138496;
+        }
+
+        /* 加载和空状态样式优化 */
+        .loading {
+            text-align: center;
+            padding: 60px var(--spacing-lg);
+            color: var(--text-secondary);
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-medium);
+            border: 1px solid var(--separator);
+            margin: var(--spacing-lg);
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--bg-tertiary);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: var(--spacing-sm);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-images {
+            text-align: center;
+            padding: 80px var(--spacing-lg);
+            color: var(--text-secondary);
+            font-size: 18px;
+            font-weight: 500;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-medium);
+            border: 1px solid var(--separator);
+            margin: var(--spacing-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .no-images::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.05) 0%, 
+                rgba(255, 255, 255, 0.02) 100%);
+            pointer-events: none;
+        }
+
+        /* 弹窗和确认对话框样式优化 */
+        .auto-save-indicator {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            background: linear-gradient(135deg, var(--success-color), #4ade80);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-small);
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s var(--easing);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2);
+        }
+
+        .auto-save-indicator.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--easing);
+        }
+
+        .confirm-dialog.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .confirm-content {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-xl);
+            border-radius: var(--radius-medium);
+            border: 1px solid var(--separator);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            transform: scale(0.8);
+            transition: transform 0.3s var(--easing);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .confirm-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .confirm-dialog.show .confirm-content {
+            transform: scale(1);
+        }
+
+        .confirm-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+            position: relative;
+            z-index: 1;
+        }
+
+        .confirm-message {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .confirm-btn {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            border-radius: var(--radius-small);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s var(--easing);
+            min-width: 90px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .confirm-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.3s;
+        }
+
+        .confirm-btn:hover::before {
+            left: 100%;
+        }
+
+        .confirm-btn.primary {
+            background: linear-gradient(135deg, var(--primary-color), #4285f4);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .confirm-btn.primary:hover {
+            background: linear-gradient(135deg, #0056d6, var(--primary-color));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+        }
+
+        .confirm-btn.secondary {
+            background: linear-gradient(135deg, var(--bg-tertiary), #8e8e93);
+            color: var(--text-primary);
+        }
+
+        .confirm-btn.secondary:hover {
+            background: linear-gradient(135deg, #6d6d70, var(--bg-tertiary));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(108, 117, 125, 0.2);
+        }
+
+        .confirm-btn.danger {
+            background: linear-gradient(135deg, var(--destructive-color), #f87171);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .confirm-btn.danger:hover {
+            background: linear-gradient(135deg, #dc2626, var(--destructive-color));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+        }
+
+        /* 查看器模态框样式优化 */
+        .selected-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, 
+                rgba(0, 0, 0, 0.95) 0%, 
+                rgba(20, 20, 20, 0.98) 100%);
+            backdrop-filter: blur(10px);
+            z-index: 3000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--easing);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .selected-viewer.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .viewer-header {
+            background: linear-gradient(135deg, 
+                rgba(28, 28, 30, 0.95) 0%, 
+                rgba(44, 44, 46, 0.98) 100%);
+            backdrop-filter: blur(20px);
+            color: white;
+            padding: var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .viewer-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .viewer-controls {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-small);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s var(--easing);
+        }
+
+        .filter-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+        }
+
+        .filter-select option {
+            background: #1c1c1e;
+            color: white;
+        }
+
+        .close-viewer {
+            background: linear-gradient(135deg, var(--destructive-color), #f87171);
+            color: white;
+            border: none;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-small);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s var(--easing);
+            font-size: 14px;
+        }
+
+        .close-viewer:hover {
+            background: linear-gradient(135deg, #dc2626, var(--destructive-color));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+        }
+
+        .viewer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+        }
+
+        .tag-filter-section {
+            background: linear-gradient(135deg, 
+                rgba(52, 73, 94, 0.9) 0%, 
+                rgba(44, 62, 80, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            padding: var(--spacing-md) var(--spacing-lg);
+            color: white;
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tag-filter-label {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tag-filter-chips {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .tag-chip {
+            background: linear-gradient(135deg, var(--info-color), #4285f4);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-large);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s var(--easing);
+            border: 2px solid transparent;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .tag-chip:hover {
+            background: linear-gradient(135deg, #2196f3, var(--info-color));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .tag-chip.active {
+            border-color: #f39c12;
+            background: linear-gradient(135deg, #e67e22, #f39c12);
+            box-shadow: 0 4px 16px rgba(243, 156, 18, 0.4);
+        }
+
+        .tag-chip.all {
+            background: linear-gradient(135deg, var(--success-color), #4ade80);
+        }
+
+        .tag-chip.all:hover {
+            background: linear-gradient(135deg, #059669, var(--success-color));
+        }
+
+        .selected-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--spacing-lg);
+            padding: var(--spacing-lg) 0;
+        }
+
+        .selected-image-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-medium);
+            overflow: hidden;
+            border: 1px solid var(--separator);
+            transition: all 0.3s var(--easing);
+            position: relative;
+        }
+
+        .selected-image-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.05) 0%, 
+                rgba(255, 255, 255, 0.02) 100%);
+            pointer-events: none;
+        }
+
+        .selected-image-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0, 122, 255, 0.2);
+        }
+
+        .selected-image-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            transition: transform 0.3s var(--easing);
+        }
+
+        .selected-image-card:hover .selected-image-preview {
+            transform: scale(1.05);
+        }
+
+        .selected-image-info {
+            padding: var(--spacing-md);
+            position: relative;
+            z-index: 1;
+        }
+
+        .selected-image-name {
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+            font-size: 14px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-clamp: 2;
+            overflow: hidden;
+        }
+
+        .selected-image-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+        }
+
+        .selected-tag {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 8px;
+            border-radius: var(--radius-small);
+            font-size: 11px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .no-selected-images {
+            text-align: center;
+            padding: 80px var(--spacing-lg);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            grid-column: 1 / -1;
+        }
+
+        .stats-summary {
+            background: linear-gradient(135deg, 
+                rgba(52, 73, 94, 0.9) 0%, 
+                rgba(44, 62, 80, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            display: flex;
+            justify-content: space-around;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 800;
+            display: block;
+            color: var(--primary-color);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-label {
+            margin-top: var(--spacing-xs);
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        /* 响应式设计优化 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: var(--spacing-lg);
+            }
+
+            .main-content {
+                padding: var(--spacing-lg);
+            }
+
+            .header {
+                flex-direction: column;
+                gap: var(--spacing-md);
+                align-items: stretch;
+                padding: var(--spacing-lg);
+            }
+
+            .pagination-controls {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: var(--spacing-sm);
+            }
+
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: var(--spacing-md);
+                padding: var(--spacing-md);
+            }
+
+            .selected-gallery {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: var(--spacing-md);
+            }
+
+            .viewer-header {
+                flex-direction: column;
+                gap: var(--spacing-md);
+                align-items: stretch;
+                padding: var(--spacing-md);
+            }
+
+            .viewer-controls {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .stats-summary {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+                padding: var(--spacing-md);
+            }
+
+            .tag-filter-section {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+                align-items: stretch;
+                padding: var(--spacing-md);
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+
+            .confirm-content {
+                margin: var(--spacing-lg);
+                max-width: none;
+                width: auto;
+            }
+
+            .folder-section {
+                margin-bottom: var(--spacing-lg);
+            }
+
+            .progress-section {
+                margin-bottom: var(--spacing-lg);
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --spacing-xs: 4px;
+                --spacing-sm: 6px;
+                --spacing-md: 10px;
+                --spacing-lg: 16px;
+                --spacing-xl: 24px;
+            }
+
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: var(--spacing-sm);
+            }
+
+            .selected-gallery {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            }
+
+            .viewer-content {
+                padding: var(--spacing-md);
+            }
+
+            .loading,
+            .no-images {
+                padding: 40px var(--spacing-md);
+                margin: var(--spacing-md);
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auto-save-indicator" id="autoSaveIndicator">
+        ✓ 已自动保存
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="confirm-dialog" id="confirmDialog">
+        <div class="confirm-content">
+            <div class="confirm-title" id="confirmTitle">确认操作</div>
+            <div class="confirm-message" id="confirmMessage">您确定要执行此操作吗？</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn secondary" id="confirmCancel">取消</button>
+                <button class="confirm-btn primary" id="confirmOk">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筛选图片查看器 -->
+    <div class="selected-viewer" id="selectedViewer">
+        <div class="viewer-header">
+            <div class="viewer-title">已筛选图片预览</div>
+            <div class="viewer-controls">
+                <label>排序方式:</label>
+                <select class="filter-select" id="sortSelect">
+                    <option value="name">按名称</option>
+                    <option value="tag">按标签</option>
+                    <option value="time">按选择时间</option>
+                </select>
+                <button class="close-viewer" id="closeViewer">关闭</button>
+            </div>
+        </div>
+        
+        <div class="stats-summary">
+            <div class="stat-item">
+                <span class="stat-number" id="viewerTotalSelected">0</span>
+                <div class="stat-label">已选图片</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="viewerTotalTags">0</span>
+                <div class="stat-label">不同标签</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="viewerFilteredCount">0</span>
+                <div class="stat-label">当前显示</div>
+            </div>
+        </div>
+
+        <div class="tag-filter-section">
+            <div class="tag-filter-label">按标签筛选:</div>
+            <div class="tag-filter-chips" id="tagFilterChips">
+                <div class="tag-chip all active" data-tag="all">全部</div>
+            </div>
+        </div>
+
+        <div class="viewer-content">
+            <div class="selected-gallery" id="selectedGallery">
+                <div class="no-selected-images">暂无筛选的图片</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>图片筛选工具</h2>
+            
+            <div class="folder-section">
+                <h3>源文件夹</h3>
+                <input type="text" id="sourcePath" class="folder-input" placeholder="选择图片文件夹路径" readonly>
+                <button id="selectSource" class="btn">选择源文件夹</button>
+            </div>
+
+            <div class="folder-section">
+                <h3>保存文件夹</h3>
+                <input type="text" id="savePath" class="folder-input" placeholder="选择保存文件夹路径" readonly>
+                <button id="selectSave" class="btn">选择保存文件夹</button>
+            </div>
+
+            <div class="progress-section">
+                <h3>进度统计</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="stats">
+                    <div>总计: <span id="totalCount">0</span></div>
+                    <div>已选: <span id="selectedCount">0</span></div>
+                    <div>已查看: <span id="viewedCount">0</span></div>
+                    <div>当前页: <span id="currentPageInfo">0/0</span></div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="saveProgress" class="btn save-btn">导出进度</button>
+                <button id="loadProgress" class="btn load-btn">加载进度</button>
+                <button id="exportSelected" class="btn export-btn">导出选中</button>
+            </div>
+
+            <div class="action-buttons">
+                <button id="viewSelected" class="btn view-btn">查看筛选</button>
+            </div>
+
+            <button id="loadImages" class="btn" disabled>加载图片</button>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <h1>图片预览与筛选</h1>
+                <div class="pagination-controls">
+                    <div class="page-size-selector">
+                        <label>每页显示:</label>
+                        <select id="pageSizeSelect">
+                            <option value="12">12</option>
+                            <option value="24" selected>24</option>
+                            <option value="36">36</option>
+                            <option value="48">48</option>
+                        </select>
+                    </div>
+                    <div class="pagination" id="paginationContainer" style="display: none;">
+                        <button id="prevBtn" class="page-btn">上一页</button>
+                        <div class="page-info" id="pageInfo">第 1 页，共 1 页</div>
+                        <button id="nextBtn" class="page-btn">下一页</button>
+                    </div>
+                </div>
+            </div>
+            <div class="content-area" id="contentArea">
+                <div class="no-images">
+                    请选择源文件夹和保存文件夹，然后点击"加载图片"开始筛选
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 添加文件缓存机制
+        class FileCache {
+            constructor() {
+                this.cache = new Map();
+                this.maxSize = 20; // 最大缓存20个文件句柄
+            }
+            
+            set(key, handle) {
+                if (this.cache.size >= this.maxSize) {
+                    // 删除最老的缓存项
+                    const firstKey = this.cache.keys().next().value;
+                    this.cache.delete(firstKey);
+                }
+                this.cache.set(key, handle);
+            }
+            
+            get(key) {
+                return this.cache.get(key);
+            }
+            
+            has(key) {
+                return this.cache.has(key);
+            }
+        }
+
+        class ImageSorter {
+            constructor() {
+                this.allImages = [];
+                this.currentPageImages = [];
+                this.selectedImages = new Set();
+                this.viewedImages = new Set();
+                this.imageTags = new Map();
+                this.currentPage = 1;
+                this.pageSize = 24;
+                this.totalPages = 1;
+                this.sourcePath = '';
+                this.savePath = '';
+                this.sourceHandle = null;
+                this.saveHandle = null;
+                this.autoSaveTimer = null;
+                this.hasUnsavedChanges = false;
+                this.batchUpdateTimer = null;
+                this.lastSaveTime = 0;
+                this.saveInterval = 2000; // 最小保存间隔2秒
+                this.pendingChanges = new Set(); // 跟踪待保存的更改
+                this.fileCache = new FileCache();
+                this.currentFilter = 'all'; // 当前标签筛选
+                this.currentSort = 'name'; // 当前排序方式
+
+                this.initEventListeners();
+                this.loadFromStorage();
+                this.setupAutoSave();
+                this.setupBeforeUnload();
+
+                // 每小时自动备份一次
+                setInterval(() => {
+                    if (this.selectedImages.size > 0 || this.viewedImages.size > 0) {
+                        this.createBackup();
+                    }
+                }, 3600000); // 1小时
+            }
+
+            setupBeforeUnload() {
+                window.addEventListener('beforeunload', (e) => {
+                    if (this.hasUnsavedChanges && (this.selectedImages.size > 0 || this.viewedImages.size > 0)) {
+                        e.preventDefault();
+                        e.returnValue = '您有未保存的筛选结果，确定要离开吗？';
+                        return e.returnValue;
+                    }
+                });
+            }
+
+            showConfirmDialog(title, message, type = 'primary') {
+                return new Promise((resolve) => {
+                    const dialog = document.getElementById('confirmDialog');
+                    const titleEl = document.getElementById('confirmTitle');
+                    const messageEl = document.getElementById('confirmMessage');
+                    const okBtn = document.getElementById('confirmOk');
+                    const cancelBtn = document.getElementById('confirmCancel');
+
+                    titleEl.textContent = title;
+                    messageEl.textContent = message;
+                    
+                    okBtn.className = `confirm-btn ${type}`;
+                    
+                    dialog.classList.add('show');
+
+                    const handleOk = () => {
+                        dialog.classList.remove('show');
+                        okBtn.removeEventListener('click', handleOk);
+                        cancelBtn.removeEventListener('click', handleCancel);
+                        resolve(true);
+                    };
+
+                    const handleCancel = () => {
+                        dialog.classList.remove('show');
+                        okBtn.removeEventListener('click', handleOk);
+                        cancelBtn.removeEventListener('click', handleCancel);
+                        resolve(false);
+                    };
+
+                    okBtn.addEventListener('click', handleOk);
+                    cancelBtn.addEventListener('click', handleCancel);
+                });
+            }
+
+            initEventListeners() {
+                document.getElementById('selectSource').addEventListener('click', () => this.selectFolder('source'));
+                document.getElementById('selectSave').addEventListener('click', () => this.selectFolder('save'));
+                document.getElementById('loadImages').addEventListener('click', () => this.loadImages());
+                document.getElementById('saveProgress').addEventListener('click', () => this.exportProgress());
+                document.getElementById('loadProgress').addEventListener('click', () => this.loadProgressFile());
+                document.getElementById('exportSelected').addEventListener('click', () => this.exportSelected());
+                document.getElementById('viewSelected').addEventListener('click', () => this.openSelectedViewer());
+                
+                // 分页控件
+                document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
+                    this.pageSize = parseInt(e.target.value);
+                    this.currentPage = 1;
+                    this.calculatePages();
+                    this.renderCurrentPage();
+                    this.updatePagination();
+                });
+
+                document.getElementById('prevBtn').addEventListener('click', () => this.goToPage(this.currentPage - 1));
+                document.getElementById('nextBtn').addEventListener('click', () => this.goToPage(this.currentPage + 1));
+
+                // 筛选查看器事件
+                document.getElementById('closeViewer').addEventListener('click', () => this.closeSelectedViewer());
+                document.getElementById('sortSelect').addEventListener('change', (e) => this.sortSelectedImages(e.target.value));
+                
+                // 点击背景关闭查看器
+                document.getElementById('selectedViewer').addEventListener('click', (e) => {
+                    if (e.target.id === 'selectedViewer') {
+                        this.closeSelectedViewer();
+                    }
+                });
+
+                // 页面关闭前自动保存
+                window.addEventListener('beforeunload', () => {
+                    this.saveToStorage();
+                });
+
+                // 定期自动保存
+                setInterval(() => {
+                    this.saveToStorage();
+                }, 30000); // 每30秒自动保存一次
+            }
+
+            setupAutoSave() {
+                // 创建防抖的自动保存函数 - 延长间隔
+                this.debouncedSave = this.debounce(() => {
+                    this.saveToStorage();
+                    this.showAutoSaveIndicator();
+                }, 3000); // 增加到3秒
+
+                // 创建智能文件保存
+                this.smartSaveToFile = this.debounce(() => {
+                    this.smartSave();
+                }, 5000); // 文件保存间隔5秒
+            }
+
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            showAutoSaveIndicator(message = '✓ 已自动保存') {
+                const indicator = document.getElementById('autoSaveIndicator');
+                indicator.textContent = message;
+                indicator.classList.add('show');
+                setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 2000);
+            }
+
+            async selectFolder(type) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker();
+                    
+                    // 尝试获取完整路径
+                    let fullPath = dirHandle.name;
+                    try {
+                        // 如果浏览器支持，尝试获取更完整的路径信息
+                        if (dirHandle.resolve) {
+                            const entries = await dirHandle.resolve(dirHandle);
+                            if (entries && entries.length > 0) {
+                                fullPath = entries.join('/');
+                            }
+                        }
+                        // 或者通过其他方式尝试获取路径
+                        if (dirHandle.getDirectoryHandle) {
+                            // 这是一个备用方案，实际可能不可用
+                            fullPath = dirHandle.name;
+                        }
+                    } catch (error) {
+                        // 如果无法获取完整路径，至少保存文件夹名称
+                        console.warn('无法获取完整路径，使用文件夹名称:', error);
+                    }
+                    
+                    if (type === 'source') {
+                        this.sourcePath = fullPath;
+                        this.sourceHandle = dirHandle;
+                        document.getElementById('sourcePath').value = fullPath;
+                    } else {
+                        this.savePath = fullPath;
+                        this.saveHandle = dirHandle;
+                        document.getElementById('savePath').value = fullPath;
+                    }
+
+                    this.updateLoadButton();
+                    this.hasUnsavedChanges = true;
+                    this.debouncedSave();
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        alert('选择文件夹失败: ' + error.message);
+                    }
+                }
+            }
+
+            updateLoadButton() {
+                const loadBtn = document.getElementById('loadImages');
+                loadBtn.disabled = !this.sourcePath || !this.savePath;
+            }
+
+            async loadImages() {
+                if (!this.sourceHandle) {
+                    alert('请先选择源文件夹');
+                    return;
+                }
+
+                const contentArea = document.getElementById('contentArea');
+                contentArea.innerHTML = '<div class="loading">正在扫描图片文件...</div>';
+
+                this.allImages = [];
+                const supportedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+
+                try {
+                    let loadedCount = 0;
+                    const updateLoadingText = () => {
+                        contentArea.innerHTML = `<div class="loading">已扫描 ${loadedCount} 张图片...</div>`;
+                    };
+
+                    for await (const [name, handle] of this.sourceHandle.entries()) {
+                        if (handle.kind === 'file') {
+                            const extension = name.split('.').pop().toLowerCase();
+                            if (supportedTypes.includes(extension)) {
+                                this.allImages.push({
+                                    name,
+                                    handle,
+                                    url: null // 延迟加载URL
+                                });
+                                loadedCount++;
+                                
+                                // 每扫描10张图片更新一次界面
+                                if (loadedCount % 10 === 0) {
+                                    updateLoadingText();
+                                    await new Promise(resolve => setTimeout(resolve, 10)); // 让UI更新
+                                }
+                            }
+                        }
+                    }
+
+                    this.calculatePages();
+                    this.renderCurrentPage();
+                    this.updatePagination();
+                    this.updateStats();
+                    this.debouncedSave();
+                    
+                } catch (error) {
+                    alert('加载图片失败: ' + error.message);
+                    contentArea.innerHTML = '<div class="no-images">加载图片失败，请重试</div>';
+                }
+            }
+
+            calculatePages() {
+                this.totalPages = Math.ceil(this.allImages.length / this.pageSize);
+                if (this.currentPage > this.totalPages) {
+                    this.currentPage = Math.max(1, this.totalPages);
+                }
+            }
+
+            async renderCurrentPage() {
+                const contentArea = document.getElementById('contentArea');
+                
+                if (this.allImages.length === 0) {
+                    contentArea.innerHTML = '<div class="no-images">未找到支持的图片文件</div>';
+                    document.getElementById('paginationContainer').style.display = 'none';
+                    return;
+                }
+
+                document.getElementById('paginationContainer').style.display = 'flex';
+
+                // 计算当前页的图片范围
+                const startIndex = (this.currentPage - 1) * this.pageSize;
+                const endIndex = Math.min(startIndex + this.pageSize, this.allImages.length);
+                
+                // 显示加载状态
+                contentArea.innerHTML = '<div class="loading">正在加载第 ' + this.currentPage + ' 页图片...</div>';
+
+                // 获取当前页的图片并加载URL
+                this.currentPageImages = [];
+                for (let i = startIndex; i < endIndex; i++) {
+                    const imageData = this.allImages[i];
+                    
+                    // 如果URL还没有加载，现在加载它
+                    if (!imageData.url) {
+                        try {
+                            const file = await imageData.handle.getFile();
+                            imageData.url = URL.createObjectURL(file);
+                            imageData.file = file; // 保存文件对象用于后续复制
+                        } catch (error) {
+                            console.error('加载图片失败:', error);
+                            continue;
+                        }
+                    }
+                    
+                    this.currentPageImages.push({
+                        ...imageData,
+                        globalIndex: i
+                    });
+                }
+
+                // 渲染当前页
+                const gallery = document.createElement('div');
+                gallery.className = 'gallery';
+
+                this.currentPageImages.forEach((image, pageIndex) => {
+                    const card = this.createImageCard(image, image.globalIndex);
+                    // 添加延迟动画
+                    card.style.animationDelay = `${pageIndex * 0.1}s`;
+                    gallery.appendChild(card);
+                });
+
+                contentArea.innerHTML = '';
+                contentArea.appendChild(gallery);
+            }
+
+            createImageCard(image, globalIndex) {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+
+                const isSelected = this.selectedImages.has(globalIndex);
+                const isViewed = this.viewedImages.has(globalIndex);
+                const tags = this.imageTags.get(globalIndex) || [];
+
+                card.innerHTML = `
+                    <div class="image-container">
+                        <div class="status-indicator ${isSelected ? 'status-selected' : isViewed ? 'status-viewed' : 'status-new'}"></div>
+                        <img src="${image.url}" alt="${image.name}" class="image-preview" loading="lazy">
+                        <div class="image-controls">
+                            <button class="control-btn select-btn ${isSelected ? 'selected' : ''}" 
+                                    onclick="imageSorter.toggleSelection(${globalIndex})">
+                                ${isSelected ? '✓' : '○'}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="image-info">
+                        <div class="image-name" title="${image.name}">${this.truncateName(image.name)}</div>
+                        <input type="text" class="tag-input" placeholder="添加标签 (用逗号分隔)" 
+                               value="${tags.join(', ')}" 
+                               onchange="imageSorter.updateTags(${globalIndex}, this.value)"
+                               onfocus="imageSorter.markAsViewed(${globalIndex})">
+                        <div class="tags-display">
+                            ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+
+                return card;
+            }
+
+            truncateName(name, maxLength = 25) {
+                if (name.length <= maxLength) return name;
+                const extension = name.split('.').pop();
+                const nameWithoutExt = name.slice(0, name.lastIndexOf('.'));
+                const truncated = nameWithoutExt.slice(0, maxLength - extension.length - 4) + '...';
+                return truncated + '.' + extension;
+            }
+
+            goToPage(page) {
+                if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+                    this.currentPage = page;
+                    this.renderCurrentPage();
+                    this.updatePagination();
+                    this.updateStats();
+                    
+                    // 滚动到顶部
+                    document.getElementById('contentArea').scrollTop = 0;
+                    this.debouncedSave();
+                }
+            }
+
+            updatePagination() {
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const pageInfo = document.getElementById('pageInfo');
+
+                prevBtn.disabled = this.currentPage <= 1;
+                nextBtn.disabled = this.currentPage >= this.totalPages;
+                pageInfo.textContent = `第 ${this.currentPage} 页，共 ${this.totalPages} 页`;
+            }
+
+            async toggleSelection(globalIndex) {
+                const wasSelected = this.selectedImages.has(globalIndex);
+                
+                if (wasSelected) {
+                    this.selectedImages.delete(globalIndex);
+                    await this.handleImageDeselection(globalIndex);
+                } else {
+                    this.selectedImages.add(globalIndex);
+                    await this.copyImageToSaveFolder(globalIndex);
+                }
+
+                this.markAsViewed(globalIndex);
+                this.updateCurrentPageDisplay();
+                this.updateStats();
+                this.hasUnsavedChanges = true;
+                
+                // 使用批量更新而不是立即保存
+                this.batchUpdateProgress();
+                this.debouncedSave();
+            }
+
+            // 添加新的批量更新方法
+            async batchUpdateProgress() {
+                // 防抖处理，避免频繁保存
+                if (this.batchUpdateTimer) {
+                    clearTimeout(this.batchUpdateTimer);
+                }
+                
+                this.batchUpdateTimer = setTimeout(async () => {
+                    await this.saveProgressToSaveFolder();
+                }, 1000); // 1秒后保存，避免频繁操作
+            }
+
+            async copyImageToSaveFolder(globalIndex) {
+                if (!this.saveHandle || globalIndex >= this.allImages.length) {
+                    return;
+                }
+
+                try {
+                    const image = this.allImages[globalIndex];
+                    const file = image.file || await image.handle.getFile();
+                    
+                    // 使用缓存的文件夹句柄
+                    let selectedFolder = this.fileCache.get('selected_images');
+                    if (!selectedFolder) {
+                        selectedFolder = await this.saveHandle.getDirectoryHandle('selected_images', { create: true });
+                        this.fileCache.set('selected_images', selectedFolder);
+                    }
+
+                    // 检查文件是否已存在
+                    const cacheKey = `file_${image.name}`;
+                    if (this.fileCache.has(cacheKey)) {
+                        console.log('文件已存在于缓存，跳过复制:', image.name);
+                        return;
+                    }
+
+                    try {
+                        await selectedFolder.getFileHandle(image.name);
+                        this.fileCache.set(cacheKey, true);
+                        console.log('文件已存在，跳过复制:', image.name);
+                        return;
+                    } catch (error) {
+                        // 文件不存在，继续复制
+                    }
+
+                    // 复制文件
+                    const newFileHandle = await selectedFolder.getFileHandle(image.name, { create: true });
+                    const writable = await newFileHandle.createWritable();
+                    await writable.write(file);
+                    await writable.close();
+
+                    this.fileCache.set(cacheKey, true);
+                    console.log('成功复制图片:', image.name);
+                    
+                } catch (error) {
+                    console.error('复制图片失败:', error);
+                    this.showAutoSaveIndicator('⚠️ 复制图片失败');
+                }
+            }
+
+            async handleImageDeselection(globalIndex) {
+                if (!this.saveHandle || globalIndex >= this.allImages.length) {
+                    return;
+                }
+
+                const confirmed = await this.showConfirmDialog(
+                    '取消选择图片',
+                    '是否同时删除已复制到保存文件夹的图片文件？',
+                    'danger'
+                );
+
+                if (confirmed) {
+                    try {
+                        const image = this.allImages[globalIndex];
+                        const selectedFolder = await this.saveHandle.getDirectoryHandle('selected_images');
+                        const fileHandle = await selectedFolder.getFileHandle(image.name);
+                        await selectedFolder.removeEntry(image.name);
+                        console.log('成功删除图片:', image.name);
+                    } catch (error) {
+                        console.error('删除图片失败:', error);
+                    }
+                }
+            }
+
+            async saveProgressToSaveFolder() {
+                if (!this.saveHandle) {
+                    return;
+                }
+
+                try {
+                    const projectData = {
+                        sourcePath: this.sourcePath,
+                        savePath: this.savePath,
+                        selectedImages: Array.from(this.selectedImages),
+                        viewedImages: Array.from(this.viewedImages),
+                        imageTags: Array.from(this.imageTags.entries()),
+                        currentPage: this.currentPage,
+                        pageSize: this.pageSize,
+                        totalImages: this.allImages.length,
+                        lastModified: new Date().toISOString(),
+                        selectedImagesList: this.getSelectedImagesList()
+                    };
+
+                    const dataStr = JSON.stringify(projectData, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+
+                    // 使用固定的文件名，实现覆盖更新而不是创建新文件
+                    const progressFileName = 'current_progress.json';
+                    
+                    try {
+                        // 尝试获取现有文件句柄，如果不存在则创建
+                        const fileHandle = await this.saveHandle.getFileHandle(progressFileName, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                    } catch (error) {
+                        console.error('更新进度文件失败:', error);
+                        throw error;
+                    }
+
+                    this.hasUnsavedChanges = false;
+                    this.showAutoSaveIndicator('✓ 进度已更新');
+                    
+                } catch (error) {
+                    console.error('保存进度失败:', error);
+                    this.showAutoSaveIndicator('⚠️ 保存失败');
+                }
+            }
+
+            getSelectedImagesList() {
+                const selectedList = [];
+                for (const index of this.selectedImages) {
+                    if (index < this.allImages.length) {
+                        const image = this.allImages[index];
+                        const tags = this.imageTags.get(index) || [];
+                        selectedList.push({
+                            name: image.name,
+                            tags: tags,
+                            originalIndex: index
+                        });
+                    }
+                }
+                return selectedList;
+            }
+
+            markAsViewed(globalIndex) {
+                if (!this.viewedImages.has(globalIndex)) {
+                    this.viewedImages.add(globalIndex);
+                    this.hasUnsavedChanges = true;
+                    this.updateStats();
+                }
+            }
+
+            updateTags(globalIndex, tagString) {
+                const tags = tagString.split(',').map(tag => tag.trim()).filter(tag => tag);
+                this.imageTags.set(globalIndex, tags);
+                this.markAsViewed(globalIndex);
+                this.updateCurrentPageDisplay();
+                
+                // 标记特定类型的更改
+                this.markChange('tags');
+                
+                // 不再立即保存，而是智能延迟保存
+                this.debouncedSave();
+            }
+
+            updateCurrentPageDisplay() {
+                // 只更新当前页面的显示
+                this.currentPageImages.forEach((image, pageIndex) => {
+                    const globalIndex = image.globalIndex;
+                    const cards = document.querySelectorAll('.image-card');
+                    const card = cards[pageIndex];
+                    
+                    if (card) {
+                        const isSelected = this.selectedImages.has(globalIndex);
+                        const isViewed = this.viewedImages.has(globalIndex);
+                        
+                        const statusIndicator = card.querySelector('.status-indicator');
+                        statusIndicator.className = `status-indicator ${isSelected ? 'status-selected' : isViewed ? 'status-viewed' : 'status-new'}`;
+                        
+                        const selectBtn = card.querySelector('.select-btn');
+                        selectBtn.className = `control-btn select-btn ${isSelected ? 'selected' : ''}`;
+                        selectBtn.innerHTML = isSelected ? '✓' : '○';
+
+                        const tags = this.imageTags.get(globalIndex) || [];
+                        const tagsDisplay = card.querySelector('.tags-display');
+                        tagsDisplay.innerHTML = tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+                    }
+                });
+            }
+
+            updateStats() {
+                document.getElementById('totalCount').textContent = this.allImages.length;
+                document.getElementById('selectedCount').textContent = this.selectedImages.size;
+                document.getElementById('viewedCount').textContent = this.viewedImages.size;
+                document.getElementById('currentPageInfo').textContent = `${this.currentPage}/${this.totalPages}`;
+
+                const progress = this.allImages.length > 0 ? (this.viewedImages.size / this.allImages.length) * 100 : 0;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+            }
+
+            saveToStorage() {
+                const projectData = {
+                    sourcePath: this.sourcePath,
+                    savePath: this.savePath,
+                    selectedImages: Array.from(this.selectedImages),
+                    viewedImages: Array.from(this.viewedImages),
+                    imageTags: Array.from(this.imageTags.entries()),
+                    currentPage: this.currentPage,
+                    pageSize: this.pageSize,
+                    hasUnsavedChanges: this.hasUnsavedChanges,
+                    timestamp: new Date().toISOString()
+                };
+
+                // 保存到 sessionStorage
+                try {
+                    const data = JSON.stringify(projectData);
+                    sessionStorage.setItem('imageSorterData', data);
+                } catch (error) {
+                    console.warn('无法保存到 sessionStorage:', error);
+                }
+            }
+
+            loadFromStorage() {
+                try {
+                    const data = sessionStorage.getItem('imageSorterData');
+                    if (data) {
+                        const projectData = JSON.parse(data);
+                        this.restoreProjectData(projectData);
+                    }
+                } catch (error) {
+                    console.warn('无法从 sessionStorage 加载数据:', error);
+                }
+            }
+
+            async exportProgress() {
+                const confirmed = await this.showConfirmDialog(
+                    '导出进度',
+                    '确定要导出当前筛选进度吗？',
+                    'primary'
+                );
+
+                if (!confirmed) return;
+
+                const projectData = {
+                    sourcePath: this.sourcePath,
+                    savePath: this.savePath,
+                    selectedImages: Array.from(this.selectedImages),
+                    viewedImages: Array.from(this.viewedImages),
+                    imageTags: Array.from(this.imageTags.entries()),
+                    currentPage: this.currentPage,
+                    pageSize: this.pageSize,
+                    totalImages: this.allImages.length,
+                    timestamp: new Date().toISOString(),
+                    selectedImagesList: this.getSelectedImagesList()
+                };
+
+                const dataStr = JSON.stringify(projectData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `image-sorter-progress-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+
+                URL.revokeObjectURL(url);
+                
+                this.hasUnsavedChanges = false;
+                this.showAutoSaveIndicator('✓ 进度已导出');
+            }
+
+            async loadProgressFile() {
+                const confirmed = await this.showConfirmDialog(
+                    '加载进度文件',
+                    '加载新的进度文件将覆盖当前的筛选状态，确定继续吗？',
+                    'primary'
+                );
+
+                if (!confirmed) return;
+
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.style.display = 'none';
+                document.body.appendChild(input);
+
+                input.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                            try {
+                                const data = JSON.parse(e.target.result);
+                                this.restoreProjectData(data);
+                            } catch (error) {
+                                await this.showConfirmDialog(
+                                    '加载失败',
+                                    '加载项目文件失败: ' + error.message,
+                                    'danger'
+                                );
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                    document.body.removeChild(input);
+                });
+
+                input.click();
+            }
+
+            restoreProjectData(data) {
+                this.sourcePath = data.sourcePath || '';
+                this.savePath = data.savePath || '';
+                this.selectedImages = new Set(data.selectedImages || []);
+                this.viewedImages = new Set(data.viewedImages || []);
+                this.imageTags = new Map(data.imageTags || []);
+                this.currentPage = data.currentPage || 1;
+                this.pageSize = data.pageSize || 24;
+                this.hasUnsavedChanges = data.hasUnsavedChanges || false;
+
+                document.getElementById('sourcePath').value = this.sourcePath;
+                document.getElementById('savePath').value = this.savePath;
+                document.getElementById('pageSizeSelect').value = this.pageSize;
+
+                this.updateLoadButton();
+                this.updateStats();
+
+                if (this.allImages.length > 0) {
+                    this.calculatePages();
+                    this.renderCurrentPage();
+                    this.updatePagination();
+                }
+
+                this.showAutoSaveIndicator('✓ 项目数据已恢复');
+                this.debouncedSave();
+            }
+
+            async exportSelected() {
+                if (this.selectedImages.size === 0) {
+                    await this.showConfirmDialog(
+                        '没有选中图片',
+                        '请先选择要导出的图片',
+                        'primary'
+                    );
+                    return;
+                }
+
+                const confirmed = await this.showConfirmDialog(
+                    '导出选中图片',
+                    `确定要导出 ${this.selectedImages.size} 张选中图片的信息吗？`,
+                    'primary'
+                );
+
+                if (!confirmed) return;
+
+                const exportData = {
+                    exportTime: new Date().toISOString(),
+                    totalSelected: this.selectedImages.size,
+                    sourcePath: this.sourcePath,
+                    savePath: this.savePath,
+                    images: this.getSelectedImagesList()
+                };
+
+                // 导出选中图片列表
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `selected-images-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+
+                URL.revokeObjectURL(url);
+
+                await this.showConfirmDialog(
+                    '导出完成',
+                    `已导出 ${this.selectedImages.size} 张选中图片的信息！\n图片文件已自动复制到保存文件夹的 selected_images 子文件夹中。`,
+                    'primary'
+                );
+            }
+
+            // 清理未使用的URL对象
+            cleanup() {
+                this.allImages.forEach(image => {
+                    if (image.url) {
+                        URL.revokeObjectURL(image.url);
+                    }
+                });
+            }
+
+            // 新增智能保存方法
+            async smartSave() {
+                const now = Date.now();
+                
+                // 如果距离上次保存时间太短，延迟保存
+                if (now - this.lastSaveTime < this.saveInterval) {
+                    if (this.smartSaveTimer) {
+                        clearTimeout(this.smartSaveTimer);
+                    }
+                    
+                    this.smartSaveTimer = setTimeout(() => {
+                        this.smartSave();
+                    }, this.saveInterval - (now - this.lastSaveTime));
+                    return;
+                }
+                
+                // 只在有实际更改时才保存
+                if (this.hasUnsavedChanges && this.pendingChanges.size > 0) {
+                    await this.saveProgressToSaveFolder();
+                    this.lastSaveTime = now;
+                    this.pendingChanges.clear();
+                }
+            }
+
+            // 修改标记更改的方法
+            markChange(type) {
+                this.pendingChanges.add(type);
+                this.hasUnsavedChanges = true;
+                this.smartSave();
+            }
+
+            // 获取当前进度数据
+            getCurrentProgressData() {
+                return {
+                    sourcePath: this.sourcePath,
+                    savePath: this.savePath,
+                    selectedImages: Array.from(this.selectedImages),
+                    viewedImages: Array.from(this.viewedImages),
+                    imageTags: Array.from(this.imageTags.entries()),
+                    currentPage: this.currentPage,
+                    pageSize: this.pageSize,
+                    totalImages: this.allImages.length,
+                    timestamp: new Date().toISOString(),
+                    selectedImagesList: this.getSelectedImagesList()
+                };
+            }
+
+            // 添加备份保存方法
+            async createBackup() {
+                if (!this.saveHandle) return;
+                
+                try {
+                    // 每小时创建一个备份
+                    const now = new Date();
+                    const backupName = `backup_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}.json`;
+                    
+                    // 获取当前进度数据
+                    const currentData = await this.getCurrentProgressData();
+                    const dataStr = JSON.stringify(currentData, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    
+                    // 创建备份子文件夹
+                    let backupFolder = this.fileCache.get('backup_folder');
+                    if (!backupFolder) {
+                        backupFolder = await this.saveHandle.getDirectoryHandle('backups', { create: true });
+                        this.fileCache.set('backup_folder', backupFolder);
+                    }
+                    
+                    const fileHandle = await backupFolder.getFileHandle(backupName, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    
+                    console.log('备份创建成功:', backupName);
+                } catch (error) {
+                    console.error('创建备份失败:', error);
+                }
+            }
+
+            // 打开筛选图片查看器
+            openSelectedViewer() {
+                if (this.selectedImages.size === 0) {
+                    this.showConfirmDialog(
+                        '没有筛选的图片',
+                        '请先选择一些图片进行筛选',
+                        'primary'
+                    );
+                    return;
+                }
+
+                this.currentFilter = 'all';
+                this.currentSort = 'name';
+                this.updateSelectedViewer();
+                document.getElementById('selectedViewer').classList.add('show');
+            }
+
+            // 关闭筛选图片查看器
+            closeSelectedViewer() {
+                document.getElementById('selectedViewer').classList.remove('show');
+            }
+
+            // 更新筛选图片查看器内容
+            updateSelectedViewer() {
+                this.updateViewerStats();
+                this.updateTagFilters();
+                this.renderSelectedImages();
+            }
+
+            // 更新查看器统计信息
+            updateViewerStats() {
+                const totalSelected = this.selectedImages.size;
+                const uniqueTags = this.getUniqueTags();
+                const filteredCount = this.getFilteredSelectedImages().length;
+
+                document.getElementById('viewerTotalSelected').textContent = totalSelected;
+                document.getElementById('viewerTotalTags').textContent = uniqueTags.length;
+                document.getElementById('viewerFilteredCount').textContent = filteredCount;
+            }
+
+            // 获取所有唯一标签
+            getUniqueTags() {
+                const allTags = new Set();
+                
+                for (const index of this.selectedImages) {
+                    const tags = this.imageTags.get(index) || [];
+                    tags.forEach(tag => allTags.add(tag));
+                }
+                
+                return Array.from(allTags).sort();
+            }
+
+            // 更新标签筛选器
+            updateTagFilters() {
+                const uniqueTags = this.getUniqueTags();
+                const tagFilterChips = document.getElementById('tagFilterChips');
+                
+                // 保留"全部"按钮，清除其他标签
+                tagFilterChips.innerHTML = '<div class="tag-chip all active" data-tag="all">全部</div>';
+                
+                uniqueTags.forEach(tag => {
+                    const chip = document.createElement('div');
+                    chip.className = 'tag-chip';
+                    chip.setAttribute('data-tag', tag);
+                    chip.textContent = tag;
+                    chip.addEventListener('click', () => this.setTagFilter(tag));
+                    tagFilterChips.appendChild(chip);
+                });
+
+                // 为"全部"按钮添加事件监听器
+                tagFilterChips.querySelector('.tag-chip.all').addEventListener('click', () => this.setTagFilter('all'));
+            }
+
+            // 设置标签筛选
+            setTagFilter(tag) {
+                this.currentFilter = tag;
+                
+                // 更新标签按钮状态
+                document.querySelectorAll('.tag-chip').forEach(chip => {
+                    chip.classList.remove('active');
+                    if (chip.getAttribute('data-tag') === tag) {
+                        chip.classList.add('active');
+                    }
+                });
+                
+                this.renderSelectedImages();
+                this.updateViewerStats();
+            }
+
+            // 获取筛选后的选中图片
+            getFilteredSelectedImages() {
+                const selectedImages = [];
+                
+                for (const index of this.selectedImages) {
+                    if (index < this.allImages.length) {
+                        const image = this.allImages[index];
+                        const tags = this.imageTags.get(index) || [];
+                        
+                        // 应用标签筛选
+                        if (this.currentFilter === 'all' || tags.includes(this.currentFilter)) {
+                            selectedImages.push({
+                                ...image,
+                                tags,
+                                originalIndex: index
+                            });
+                        }
+                    }
+                }
+                
+                return this.sortImages(selectedImages);
+            }
+
+            // 排序图片
+            sortImages(images) {
+                switch (this.currentSort) {
+                    case 'name':
+                        return images.sort((a, b) => a.name.localeCompare(b.name));
+                    case 'tag':
+                        return images.sort((a, b) => {
+                            const aTagStr = a.tags.join(', ');
+                            const bTagStr = b.tags.join(', ');
+                            return aTagStr.localeCompare(bTagStr);
+                        });
+                    case 'time':
+                        return images.sort((a, b) => a.originalIndex - b.originalIndex);
+                    default:
+                        return images;
+                }
+            }
+
+            // 排序选中图片
+            sortSelectedImages(sortType) {
+                this.currentSort = sortType;
+                this.renderSelectedImages();
+            }
+
+            // 渲染选中的图片
+            renderSelectedImages() {
+                const gallery = document.getElementById('selectedGallery');
+                const filteredImages = this.getFilteredSelectedImages();
+                
+                if (filteredImages.length === 0) {
+                    gallery.innerHTML = '<div class="no-selected-images">没有符合筛选条件的图片</div>';
+                    return;
+                }
+                
+                gallery.innerHTML = '';
+                
+                filteredImages.forEach(image => {
+                    const card = this.createSelectedImageCard(image);
+                    gallery.appendChild(card);
+                });
+            }
+
+            // 创建选中图片卡片
+            createSelectedImageCard(image) {
+                const card = document.createElement('div');
+                card.className = 'selected-image-card';
+                
+                const tagsHtml = image.tags.map(tag => 
+                    `<span class="selected-tag">${tag}</span>`
+                ).join('');
+                
+                card.innerHTML = `
+                    <img src="${image.url}" alt="${image.name}" class="selected-image-preview" loading="lazy">
+                    <div class="selected-image-info">
+                        <div class="selected-image-name" title="${image.name}">
+                            ${this.truncateName(image.name, 20)}
+                        </div>
+                        <div class="selected-image-tags">
+                            ${tagsHtml}
+                        </div>
+                    </div>
+                `;
+                
+                return card;
+            }
+        }
+
+        // 初始化应用
+        const imageSorter = new ImageSorter();
+
+        // 检查浏览器支持
+        if (!('showDirectoryPicker' in window)) {
+            alert('您的浏览器不支持文件系统访问API。请使用Chrome 86+或Edge 86+等现代浏览器。');
+        }
+
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', () => {
+            imageSorter.cleanup();
+        });
+    </script>
+</body>
+</html>
